@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 
 import requests
@@ -26,6 +27,26 @@ def run_aria2(download_url, file_name):
     """Menjalankan perintah aria2 untuk mendownload file."""
     subprocess.run(["aria2c", download_url, "--out", file_name])
 
+def download_video(video_id):
+    """Mendownload video dari Dood.re menggunakan aria2."""
+    # Kirim permintaan ke API Dood.re untuk mendapatkan link download video
+    params = {"api_key": DOOD_RE_API_KEY, "video_id": video_id}
+    response = requests.get(DOOD_RE_VIDEO_URL, params=params)
+
+    # Cek apakah permintaan berhasil atau tidak
+    if response.status_code == 200:
+        # Ambil link download dari data response
+        download_url = response.json()["url"]
+
+        # Buat nama file hasil download dengan menambahkan ekstensi .mp4
+        file_name = f"{video_id}.mp4"
+
+        # Download file menggunakan aria2
+        run_aria2(download_url, file_name)
+
+        # Cek apakah file hasil download sudah ada
+        if os.path.exists(file_name
+
 def upload_video(video_data):
     """Mengupload video ke Telegram menggunakan API."""
     # Inisialisasi bot Telegram
@@ -38,6 +59,11 @@ def download_video_handler(update, context):
     """Fungsi yang dipanggil ketika pesan '/download' diterima oleh bot."""
     # Ambil video_id dari pesan yang dikirim pengguna
     video_id = update.message.text.split()[1]
+
+    # Validasi apakah video_id merupakan string angka
+    if not video_id.isdigit():
+        update.message.reply_text("Video ID harus berupa angka.")
+        return
 
     # Download video dari Dood.re
     video_data = download_video(video_id)
