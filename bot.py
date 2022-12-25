@@ -24,36 +24,55 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 def run_aria2(download_url, file_name):
-    """Menjalankan perintah aria2 untuk mendownload file."""
-    subprocess.run(["aria2c", download_url, "--out", file_name])
+    """Menjalankan perintah aria2 untuk mendownload"""
 
 def download_video(video_id):
     """Mendownload video dari Dood.re menggunakan aria2."""
-    # Kirim permintaan ke API Dood.re untuk mendapatkan link download video
-    params = {"api_key": DOOD_RE_API_KEY, "video_id": video_id}
-    response = requests.get(DOOD_RE_VIDEO_URL, params=params)
+    # Kirim permintaan ke API Dood.re
+    params = {
+        "api_key": DOOD_RE_API_KEY,
+        "video_id": video_id
+    }
+    try:
+        response = requests.get(DOOD_RE_VIDEO_URL, params=params)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        return None
 
-    # Cek apakah permintaan berhasil atau tidak
-    if response.status_code == 200:
-        # Ambil link download dari data response
-        download_url = response.json()["url"]
+    # Ambil link download video dari hasil respon API
+    data = response.json()
+    download_url = data.get("url")
+    if not download_url:
+        return None
 
-        # Buat nama file hasil download dengan menambahkan ekstensi .mp4
-        file_name = f"{video_id}.mp4"
+    # Download video menggunakan aria2
+    file_name = f"{video_id}.mp4"
+    run_aria2_success = run_aria2(download_url, file_name)
+    if not run_aria2_success:
+        return None
 
-        # Download file menggunakan aria2
-        run_aria2(download_url, file_name)
+    # Baca file video yang telah didownload
+    try:
+        with open(file_name, "rb") as f:
+            video_data = f.read()
+    except IOError as e:
+        return None
 
-        # Cek apakah file hasil download sudah ada
-        if os.path.exists(file_name
+    # Hapus file video setelah selesai digunakan
+    os.remove(file_name)
 
-def upload_video(video_data):
+    return video_data
+
+def upload_video(video_data, update):
     """Mengupload video ke Telegram menggunakan API."""
     # Inisialisasi bot Telegram
     bot = Bot(token=TELEGRAM_API_TOKEN)
 
     # Kirim video ke channel atau chat yang ditentukan
-    bot.send_video(chat_id=TELEGRAM_CHAT_ID, video=video_data)
+    try:
+        bot.send_video(chat_id=TELEGRAM_CHAT_ID, video=video_data)
+    except Exception as e:
+        update.message.reply_text
 
 def download_video_handler(update, context):
     """Fungsi yang dipanggil ketika pesan '/download' diterima oleh bot."""
@@ -65,16 +84,19 @@ def download_video_handler(update, context):
         update.message.reply_text("Video ID harus berupa angka.")
         return
 
+    # Kirim pesan pemberitahuan ke pengguna bahwa proses download dimulai
+    update.message.reply_text("Mendownload video dari Dood.re...")
+
     # Download video dari Dood.re
     video_data = download_video(video_id)
 
     # Cek apakah download berhasil atau tidak
     if video_data:
-        # Upload video ke Telegram
-        upload_video(video_data)
-        update.message.reply_text("Video telah diupload!")
-    else:
-        update.message.reply_text("Gagal mendownload video dari Dood.re.")
+        # Kirim pesan pemberitahuan ke pengguna bahwa proses download selesai
+        update.message.reply_text("Mendownload video dari Dood.re selesai!")
+
+        # Kirim pesan pemberitahuan ke pengguna bahwa proses upload dimulai
+        update.message
 
 def main():
     # Inisialisasi updater
