@@ -1,4 +1,5 @@
 import logging
+import subprocess
 
 import requests
 from telegram import Bot
@@ -21,20 +22,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def download_video(video_id):
-    """Mendownload video dari Dood.re menggunakan API."""
-    # Kirim permintaan ke API Dood.re untuk mendapatkan link download video
-    params = {"api_key": DOOD_RE_API_KEY, "video_id": video_id}
-    response = requests.get(DOOD_RE_VIDEO_URL, params=params)
-
-    # Cek apakah permintaan berhasil atau tidak
-    if response.status_code == 200:
-        # Ambil data video dari response
-        video_data = response.content
-        return video_data
-    else:
-        logger.error(f"Gagal mendapatkan video dari Dood.re: {response.text}")
-        return None
+def run_aria2(download_url, file_name):
+    """Menjalankan perintah aria2 untuk mendownload file."""
+    subprocess.run(["aria2c", download_url, "--out", file_name])
 
 def upload_video(video_data):
     """Mengupload video ke Telegram menggunakan API."""
@@ -59,3 +49,19 @@ def download_video_handler(update, context):
         update.message.reply_text("Video telah diupload!")
     else:
         update.message.reply_text("Gagal mendownload video dari Dood.re.")
+
+def main():
+    # Inisialisasi updater
+    updater = Updater(token=TELEGRAM_API_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
+
+    # Tambahkan handler untuk pesan '/download'
+    download_handler = CommandHandler('download', download_video_handler)
+    dispatcher.add_handler(download_handler)
+
+    # Mulai polling
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
