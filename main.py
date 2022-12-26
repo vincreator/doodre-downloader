@@ -1,10 +1,14 @@
+# main.py
+
 import logging
 import os
-import subprocess
+import re
+import aria2p
 
 import requests
 from telegram import Bot
 from telegram.ext import CommandHandler, Updater
+
 
 # API key Dood.re
 DOOD_RE_API_KEY = "your_dood_re_api_key"
@@ -18,16 +22,23 @@ TELEGRAM_CHAT_ID = "your_telegram_chat_id"
 # URL API Dood.re untuk mendapatkan link download video
 DOOD_RE_VIDEO_URL = "https://dood.re/api/v1/video"
 
+# Regex untuk mengecek apakah video_id terdiri dari kombinasi angka dan huruf
+video_id_regex = r"^[a-zA-Z0-9]+$"
+
 # Inisialisasi logger
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def run_aria2(download_url, file_name):
-    """Menjalankan perintah aria2 untuk mendownload"""
+# Inisialisasi aria2p
+aria2 = aria2p.API()
 
 def download_video(video_id):
-    """Mendownload video dari Dood.re menggunakan aria2."""
+    """Mendownload video dari Dood.re menggunakan aria2p."""
+    # Validasi apakah video_id merupakan kombinasi angka dan huruf
+    if not re.match(video_id_regex, video_id):
+        return None
+
     # Kirim permintaan ke API Dood.re
     params = {
         "api_key": DOOD_RE_API_KEY,
@@ -45,11 +56,11 @@ def download_video(video_id):
     if not download_url:
         return None
 
-    # Download video menggunakan aria2
+    # Download video menggunakan aria2p
     file_name = f"{video_id}.mp4"
-    run_aria2_success = run_aria2(download_url, file_name)
-    if not run_aria2_success:
-        return None
+    aria2.add_uris([download_url], options={"out": file_name})
+    download = aria2.get_download(download_url)
+    download.wait_until_complete()
 
     # Baca file video yang telah didownload
     try:
