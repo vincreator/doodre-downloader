@@ -43,7 +43,7 @@ aria2 = aria2p.API()
 
 def download_video(video_id):
     """Mendownload video dari Dood.re menggunakan aria2p."""
-    # Validasi apakah video_id merupakan kombinasi angka dan huruf
+    # Validasi apakah video_id terdiri dari kombinasi angka dan huruf
     if not re.match(video_id_regex, video_id):
         return None
 
@@ -56,12 +56,14 @@ def download_video(video_id):
         response = requests.get(DOOD_RE_VIDEO_URL, params=params)
         response.raise_for_status()
     except requests.RequestException as e:
+        logger.error(f"RequestException: {e}")
         return None
 
     # Ambil link download video dari hasil respon API
     data = response.json()
     download_url = data.get("url")
     if not download_url:
+        logger.error(f"API response: {data}")
         return None
 
     # Download video menggunakan aria2p
@@ -75,13 +77,14 @@ def download_video(video_id):
         with open(file_name, "rb") as f:
             video_data = f.read()
     except IOError as e:
+        logger.error(f"IOError: {e}")
         return None
 
     # Hapus file video setelah selesai digunakan
     os.remove(file_name)
 
     return video_data
-
+    
 def upload_video(video_data, update):
     """Mengupload video ke Telegram menggunakan API."""
     # Inisialisasi bot Telegram
@@ -91,7 +94,7 @@ def upload_video(video_data, update):
     try:
         bot.send_video(chat_id=TELEGRAM_CHAT_ID, video=video_data)
     except Exception as e:
-        update.message.reply_text
+        update.message.reply_text("Gagal mengirim video. Error: {}".format(e))
 
 def download_video_handler(update, context):
     """Fungsi yang dipanggil ketika pesan '/download' diterima oleh bot."""
