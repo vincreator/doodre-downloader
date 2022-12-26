@@ -4,20 +4,28 @@ import logging
 import os
 import re
 import aria2p
-
 import requests
+
 from telegram import Bot
 from telegram.ext import CommandHandler, Updater
 
+# Import the .env file
+from dotenv import load_dotenv
+load_dotenv()
 
-# API key Dood.re
-DOOD_RE_API_KEY = "your_dood_re_api_key"
+# Get the API keys and session IDs from the environment variables
+DOOD_RE_API_KEY = os.getenv("DOOD_RE_API_KEY")
+TELEGRAM_API_TOKEN = os.getenv("TELEGRAM_API_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# API token Telegram
-TELEGRAM_API_TOKEN = "your_telegram_api_token"
+# Inisialisasi logger
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# ID chat atau channel Telegram tempat video akan diupload
-TELEGRAM_CHAT_ID = "your_telegram_chat_id"
+# Get the allowed IDs from the environment variable
+allowed_ids_string = os.getenv("ALLOWED_IDS")
+allowed_ids = [int(id) for id in allowed_ids_string.split(",")]
 
 # URL API Dood.re untuk mendapatkan link download video
 DOOD_RE_VIDEO_URL = "https://dood.re/api/v1/video"
@@ -88,39 +96,59 @@ def upload_video(video_data, update):
 def download_video_handler(update, context):
     """Fungsi yang dipanggil ketika pesan '/download' diterima oleh bot."""
     # Ambil video_id dari pesan yang dikirim pengguna
-    video_id = update.message.text.split()[1]
+    video_id = update.message.text.split()
+    if len(video_id) < 2:
+        update.message.reply_text("Video ID tidak ditemukan.")
+        logger.error("Video ID not found")
+        return
+    video_id = video_id[1]
 
-    # Validasi apakah video_id merupakan string angka
-    if not video_id.isdigit():
-        update.message.reply_text("Video ID harus berupa angka.")
+    # Validasi apakah video_id terdiri dari kombinasi angka dan huruf
+    if not re.match(video_id_regex, video_id):
+        update.message.reply_text("Video ID harus terdiri dari angka dan huruf.")
+        logger.error("Invalid video ID")
+        return
+
+    # Get the user ID of the sender
+    user_id = update.effective_user.id
+
+    # Check if the user ID is in the list of allowed IDs
+    if user_id not in allowed_ids:
+        update.message.reply_text("You are not authorized to use this command.")
+        logger.error("Unauthorized user ID")
         return
 
     # Kirim pesan pemberitahuan ke pengguna bahwa proses download dimulai
     update.message.reply_text("Mendownload video dari Dood.re...")
+    logger.info("Downloading video from Dood.re")
 
     # Download video dari Dood.re
     video_data = download_video(video_id)
+    if not video_data:
+        update.message.reply_text("Gagal mendownload video.")
+        logger.error("Failed to download video")
+        return
 
-    # Cek apakah download berhasil atau tidak
-    if video_data:
-        # Kirim pesan pemberitahuan ke pengguna bahwa proses download selesai
-        update.message.reply_text("Mendownload video dari Dood.re selesai!")
+    # Kirim pesan pemberitahuan ke pengguna bahwa proses upload dimulai
+    update.message.reply_text("Mengupload video ke Telegram...")
+    logger.info("Uploading video to Telegram")
 
-        # Kirim pesan pemberitahuan ke pengguna bahwa proses upload dimulai
-        update.message
+    # Upload video ke Telegram
+    upload_video(video_data, update)
+    update.message.reply_text("Video berhasil diupload.")
+    logger.info("Video successfully uploaded")
 
 def main():
-    # Inisialisasi updater
+    # Inisialisasi bot Telegram
     updater = Updater(token=TELEGRAM_API_TOKEN, use_context=True)
     dispatcher = updater.dispatcher
 
     # Tambahkan handler untuk pesan '/download'
-    download_handler = CommandHandler('download', download_video_handler)
+    download_handler = CommandHandler("download", download_video_handler)
     dispatcher.add_handler(download_handler)
 
-    # Mulai polling
+    # Jalankan bot
     updater.start_polling()
     updater.idle()
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
